@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>色見本 — Color Pantone</title><title>色样 — Color Pantone</title>
+    <!-- 使用支持UMD的ColorThief CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.0/color-thief.umd.js"></script>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            background-color: #F7F5F2;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+        }
+        .container {
+            width: 90%;
+            max-width: 320px;
+            padding-top: 20px;
+        }
+        h1 {
+            font-family: "Georgia", serif;
+            font-size: 28px;
+            letter-spacing: 0.08em;
+            color: #3A3A3A;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #DADADA;
+            padding-bottom: 10px;
+        }
+        .upload-box {
+            width: 100%;
+            height: 56px;
+            border: 1px dashed #C0C0C0;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 24px;
+            cursor: pointer;
+        }
+        .upload-box span {
+            font-size: 14px;
+            color: #999;
+        }
+        .upload-box i {
+            font-size: 20px;
+            color: #999;
+        }
+        .image-card {
+            width: fit-content;
+            height: fit-content;
+            max-width: 100%;
+            margin-bottom: 28px;
+            margin-left: auto;
+            margin-right: auto;
+            background-color: white;
+            border-radius: 6px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+        }
+        .image-card img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 4px;
+            object-fit: contain;
+            margin: auto;
+        }
+        .color-card {
+            width: 100%;
+            padding: 16px;
+            background-color: white;
+            border-radius: 6px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+            margin-bottom: 40px;
+            box-sizing: border-box;
+        }
+        .color-title {
+            font-size: 16px;
+            color: #6B6B6B;
+            margin-bottom: 16px;
+            font-weight: 300;
+        }
+        .colors {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            justify-items: center;
+            align-items: start;
+        }
+        .color-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .color-box {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .color-box:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.15);
+        }
+        .hex-label {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #666;
+            font-weight: 400;
+            letter-spacing: 0.03em;
+        }
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            opacity: 0;
+            transition: opacity 0.25s ease-in-out;
+            z-index: 1000;
+        }
+        .toast.show {
+            opacity: 1;
+        }
+        footer {
+            font-size: 11px;
+            color: #D0D0D0;
+            margin-top: 40px;
+            font-weight: 300;
+        }
+        .error-message {
+            font-size: 14px;
+            color: #B0B0B0;
+            font-weight: 300;
+            margin-top: 16px;
+        }
+        .loading-message {
+            font-size: 14px;
+            color: #B0B0B0;
+            font-weight: 300;
+            margin-top: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>色見本</h1>
+        <div class="upload-box" id="upload-box">
+            <i>+</i>
+            <span>写真を選ぶ</span>
+        </div>
+
+        <div id="image-container" class="image-card" style="display: none;">
+            <img id="uploaded-image" src="" alt="Uploaded Image">
+        </div>
+
+        <div id="color-card" class="color-card" style="display: none;">
+            <div id="color-title" class="color-title"></div>
+            <div id="colors" class="colors"></div>
+        </div>
+
+        <div id="error-message" class="error-message" style="display: none;">別の写真をお試しください</div>
+        <div id="loading-message" class="loading-message" style="display: none;">色を抽出中...</div>
+
+        <div id="toast" class="toast">コピーしました</div>
+
+        <footer>色見本 — 写真に色の詩を</footer>
+    </div>
+
+    <script>
+        (function() {
+            // DOM 元素引用
+            const uploadedImage = document.getElementById('uploaded-image');
+            const imageContainer = document.getElementById('image-container');
+            const colorCard = document.getElementById('color-card');
+            const colorTitle = document.getElementById('color-title');
+            const colorsContainer = document.getElementById('colors');
+            const errorMessage = document.getElementById('error-message');
+            const loadingMessage = document.getElementById('loading-message');
+            const toast = document.getElementById('toast');
+            const uploadBox = document.getElementById('upload-box');
+
+            // ColorThief 实例，延迟初始化
+            let colorThief = null;
+
+            // 检查 ColorThief 是否可用
+            if (typeof ColorThief !== 'undefined') {
+                colorThief = new ColorThief();
+            } else {
+                console.error('ColorThief library failed to load.');
+                errorMessage.textContent = '色抽出ライブラリの読み込みに失敗しました。';
+                errorMessage.style.display = 'block';
+            }
+
+            // 用于生成颜色名称的单词库
+            const adjectives = ['夕暮れ', '静かな', '古い', '淡い', '朝焼け', '寂しい', '落ち着いた', '冷たい', '蒼い', '暗い'];
+            const nouns = ['砂', '霧', '画報', '余韻', '標本', '星', '時間', '羽', '水面', '灯り'];
+
+            function getRandomName() {
+                const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+                const noun = nouns[Math.floor(Math.random() * nouns.length)];
+                return adj + 'の' + noun;
+            }
+
+            function rgbToHex(r, g, b) {
+                return '#' + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1).toUpperCase();
+            }
+
+            function showToast() {
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 1500);
+            }
+
+            // 核心颜色提取和渲染函数
+            function extractColors(img) {
+                // 隐藏错误信息，显示加载状态
+                errorMessage.style.display = 'none';
+                loadingMessage.style.display = 'block';
+                colorCard.style.display = 'none';
+
+                // 确保 ColorThief 可用
+                if (!colorThief) {
+                    loadingMessage.style.display = 'none';
+                    errorMessage.textContent = '色抽出ライブラリが利用できません。';
+                    errorMessage.style.display = 'block';
+                    return;
+                }
+
+                try {
+                    // 使用 setTimeout 确保 UI 更新（loading）在同步代码之前执行
+                    setTimeout(() => {
+                        try {
+                            const colors = colorThief.getPalette(img, 6);
+                            loadingMessage.style.display = 'none';
+
+                            if (!colors || colors.length === 0) {
+                                errorMessage.textContent = '色を抽出できませんでした。別の写真をお試しください。';
+                                errorMessage.style.display = 'block';
+                                return;
+                            }
+
+                            // 生成随机名称
+                            const randomName = getRandomName();
+                            colorTitle.textContent = randomName;
+
+                            // 清空并重新填充色块
+                            colorsContainer.innerHTML = '';
+                            colors.forEach(color => {
+                                const hex = rgbToHex(color[0], color[1], color[2]);
+
+                                // 创建颜色项容器
+                                const colorItem = document.createElement('div');
+                                colorItem.classList.add('color-item');
+
+                                // 创建圆形色块
+                                const colorBox = document.createElement('div');
+                                colorBox.classList.add('color-box');
+                                colorBox.style.backgroundColor = hex;
+
+                                // 创建HEX标签（放在色块下方）
+                                const hexLabel = document.createElement('div');
+                                hexLabel.classList.add('hex-label');
+                                hexLabel.textContent = hex;
+
+                                // 将色块和标签添加到容器
+                                colorItem.appendChild(colorBox);
+                                colorItem.appendChild(hexLabel);
+
+                                // 点击色块复制 HEX 值
+                                colorBox.addEventListener('click', function(e) {
+                                    e.stopPropagation();
+                                    // 使用 Clipboard API 复制
+                                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                                        navigator.clipboard.writeText(hex).then(() => {
+                                            showToast();
+                                        }).catch(err => {
+                                            console.error('Failed to copy: ', err);
+                                            // 降级方案：使用 document.execCommand
+                                            const textArea = document.createElement('textarea');
+                                            textArea.value = hex;
+                                            document.body.appendChild(textArea);
+                                            textArea.select();
+                                            try {
+                                                document.execCommand('copy');
+                                                showToast();
+                                            } catch (err) {
+                                                console.error('Fallback copy failed: ', err);
+                                                alert('コピーに失敗しました。');
+                                            }
+                                            document.body.removeChild(textArea);
+                                        });
+                                    } else {
+                                        // 降级方案：对于不支持 Clipboard API 的浏览器
+                                        const textArea = document.createElement('textarea');
+                                        textArea.value = hex;
+                                        document.body.appendChild(textArea);
+                                        textArea.select();
+                                        try {
+                                            document.execCommand('copy');
+                                            showToast();
+                                        } catch (err) {
+                                            console.error('Fallback copy failed: ', err);
+                                            alert('コピーに失敗しました。');
+                                        }
+                                        document.body.removeChild(textArea);
+                                    }
+                                });
+
+                                colorsContainer.appendChild(colorItem);
+                            });
+
+                            // 显示色卡
+                            colorCard.style.display = 'block';
+
+                        } catch (err) {
+                            loadingMessage.style.display = 'none';
+                            console.error('Color extraction error:', err);
+                            errorMessage.textContent = '色の抽出中にエラーが発生しました。別の写真をお試しください。';
+                            errorMessage.style.display = 'block';
+                        }
+                    }, 50); // 短暂延迟以允许UI更新
+
+                } catch (err) {
+                    loadingMessage.style.display = 'none';
+                    console.error('Outer extraction error:', err);
+                    errorMessage.textContent = '予期せぬエラーが発生しました。';
+                    errorMessage.style.display = 'block';
+                }
+            }
+
+            // 动态创建并触发文件输入的函数
+            function triggerFileInput() {
+                // 创建一个临时的 input 元素
+                const tempInput = document.createElement('input');
+                tempInput.type = 'file';
+                tempInput.accept = 'image/*';
+                tempInput.capture = 'environment';
+                tempInput.style.display = 'none'; // 确保不可见
+
+                // 绑定 change 事件
+                tempInput.addEventListener('change', function(event) {
+                    const file = event.target.files[0];
+                    if (!file) {
+                        // 如果没有选择文件，移除临时元素并返回
+                        document.body.removeChild(tempInput);
+                        return;
+                    }
+
+                    // 重置 UI 状态
+                    imageContainer.style.display = 'none';
+                    colorCard.style.display = 'none';
+                    errorMessage.style.display = 'none';
+                    loadingMessage.style.display = 'block';
+
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        // 图片加载完成后，设置 src 并触发 onload
+                        uploadedImage.onload = function() {
+                            // 图片完全加载后，显示预览并提取颜色
+                            imageContainer.style.display = 'block';
+                            extractColors(uploadedImage);
+                        };
+                        uploadedImage.onerror = function() {
+                            loadingMessage.style.display = 'none';
+                            errorMessage.textContent = '画像の読み込みに失敗しました。';
+                            errorMessage.style.display = 'block';
+                        };
+                        uploadedImage.src = e.target.result;
+                    };
+                    reader.onerror = function() {
+                        loadingMessage.style.display = 'none';
+                        errorMessage.textContent = 'ファイルの読み込みに失敗しました。';errorMessage.textContent = '文件的读取失败。';;错误信息。textContent = '文件的读取失败。';
+                        errorMessage.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+
+                    // 移除临时 input 元素
+                    document.body.removeChild(tempInput);
+                });
+
+                // 将临时 input 添加到 DOM 中（某些浏览器需要元素在 DOM 中才能触发 click）
+                document.body.appendChild(tempInput);
+                // 触发点击
+                tempInput.click();
+            }
+
+            // 点击上传框触发文件选择
+            uploadBox.addEventListener('click', function() {
+                triggerFileInput();
+            });
+
+        })();
+    </script>
+</body>
+</html>
